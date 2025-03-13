@@ -3,15 +3,18 @@
 Cerradura cerradura;
 
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  cerradura.iniciar();
-  cerradura.mostrarMensajeInicial();
+  Serial.begin(115200);
+  cerradura.iniciar(); // Inicializar la cerradura
+  Serial.println("AAA");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  Serial.println("AAA");
-  cerradura.ingresarClave();
-  delay(100);
+  // Esperar activamente a que se presione #
+  char key = cerradura.leerTecla();
+  if (key == '#') {
+    cerradura.ingresarClave(); // Ingresar la clave
+  }
+
+  // Actualizar la lógica de espera
+  cerradura.actualizar();
 }

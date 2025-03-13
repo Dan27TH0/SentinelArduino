@@ -1,52 +1,88 @@
-// Librerias
-#include "ConexionWiFi.h"
+#include <WiFi.h>
+#include <HTTPClient.h>
 
-// Conecta el circuito con la app y la web
-class ConexionIoT{
+class ConexionIoT {
   private:
-    ConexionWiFi conexion;
-    const char* serverUrl = "";
-    unsigned long previousMillis;
+    const char* ssid = "Redmi Note 12";
+    const char* password = "1q2w3e4r5t6y";
+    const char* serverUrl = "http://192.168.151.46:3000";
+    unsigned long previousMillisEstado;
+    unsigned long previousMillisChapa;
     const long interval;
-  
+
   public:
-    ConexionIoT() : interval(3000) {
-        conexion.conectarWiFi();
+    ConexionIoT() : interval(3000), previousMillisEstado(0), previousMillisChapa(0) {
+        conectarWiFi();
     }
-  
-  void enviarEstadoPuerta(String estado){
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
-      previousMillis = currentMillis;
 
-      if (WiFi.status() == WL_CONNECTED) {
-          HTTPClient http;
+    void conectarWiFi() {
+        WiFi.begin(ssid, password);
+        Serial.print("Conectando a WiFi");
 
-          String postData = "estado=" + estado;
-          // Inicia la conexión HTTP
-          http.begin(serverUrl);
-          http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        int intentos = 0;
+        while (WiFi.status() != WL_CONNECTED && intentos < 20) {
+            delay(500);
+            Serial.print(".");
+            intentos++;
+        }
 
-          http.POST(postData);
-          http.end();
-      }
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\n✅ Conectado a WiFi!");
+        } else {
+            Serial.println("\n❌ No se pudo conectar a WiFi.");
+        }
     }
-  }
 
-  String recibirEstadoChapa(){
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
-      previousMillis = currentMillis;
+    void obtenerEstadoPuerta(String estado) {
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousMillisEstado >= interval) {
+            previousMillisEstado = currentMillis;
 
-      if (WiFi.status() == WL_CONNECTED) {
-        HTTPClient http;
-        String url = String(serverUrl) + "";
-        http.begin(url);
-        http.GET();
-        String respuesta = http.getString();
-        http.end();
-        return respuesta;
-      }
+            if (WiFi.status() == WL_CONNECTED) {
+                HTTPClient http;
+                String url = String(serverUrl) + "/estado";
+                http.begin(url);
+                http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+                String postData = "estado=" + estado;
+                int responseCode = http.POST(postData);
+
+                Serial.print("Estado enviado: ");
+                Serial.println(responseCode);
+
+                http.end();
+            } else {
+                Serial.println("Error: No hay conexión WiFi");
+            }
+        }
     }
-  }
+
+    String recibirEstadoChapa() {
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousMillisChapa >= interval) {
+            previousMillisChapa = currentMillis;
+
+            if (WiFi.status() == WL_CONNECTED) {
+                HTTPClient http;
+                String url = String(serverUrl) + "/estado";
+                http.begin(url);
+
+                int httpResponseCode = http.GET();
+                if (httpResponseCode > 0) {
+                    String respuesta = http.getString();
+                    Serial.println("Estado recibido: " + respuesta);
+                    http.end();
+                    return respuesta;
+                } else {
+                    Serial.print("Error en GET: ");
+                    Serial.println(httpResponseCode);
+                }
+                http.end();
+            } else {
+                Serial.println("Error: No hay conexión WiFi");
+                conectarWiFi();
+            }
+        }
+        return "ERROR";
+    }
 };

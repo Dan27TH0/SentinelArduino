@@ -4,8 +4,8 @@
 
 class ConexionWiFi {
   public:
-    const char* ssid = ""; // Nombre de tu red WiFi
-    const char* password = ""; // Contraseña de tu red WiFi
+    const char* ssid = "NETWEY-DB-2.4G"; // Nombre de tu red WiFi
+    const char* password = "NetWey2023"; // Contraseña de tu red WiFi
 
   // Método para conectar a WiFi con un tiempo límite de espera
   void conectarWiFi() {
@@ -21,10 +21,9 @@ class ConexionWiFi {
 
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("\n✅ Conectado a WiFi!");
-      Serial.print("IP: ");
-      Serial.println(WiFi.localIP());
     } else {
       Serial.println("\n❌ No se pudo conectar a WiFi.");
+      // Aquí podrías activar un modo offline o reintentar la conexión.
     }
   }
 };
