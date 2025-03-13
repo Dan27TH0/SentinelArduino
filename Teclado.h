@@ -1,11 +1,9 @@
 // Librerias
 #include <Key.h>
 #include <Keypad.h>
-#include "PantallaLCD.h"
 
 class Teclado{
   private:
-    PantallaLCD pantalla;
     static const byte ROWS = 4;
     static const byte COLS = 4;
     char keys[ROWS][COLS] = {
@@ -22,7 +20,7 @@ class Teclado{
     Teclado():
       keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS){}
     
-  char leerTecla(){ 
-    return keypad.getKey(); 
-  }
+    char leerTecla(){ 
+      return keypad.getKey(); 
+    }
 };
