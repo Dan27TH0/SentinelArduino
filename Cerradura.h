@@ -5,114 +5,158 @@
 #include "PantallaLCD.h"
 #include "Chapa.h"
 #include "ConexionIoT.h"
+#include "Buzzer.h"
 
 class Cerradura {
-  private:
+private:
+    // Componentes
     Teclado teclado;
     PantallaLCD pantalla;
     Chapa chapa;
     ConexionIoT conexion;
-    String clave;
-    const String claveCorrecta = "1587";
-    int intentos = 3;
+    Buzzer buzzer;
+    
+    // Configuración
+    const String CLAVE_CORRECTA = "1587";
+    const unsigned long TIEMPO_ESPERA = 3000; // 3 segundos
+    
+    // Estado
+    String claveIngresada;
+    int intentosRestantes = 3;
     bool desbloqueado = false;
-    unsigned long tiempoAnterior = 0; // Para el manejo de tiempos sin delay
-    bool esperandoConfirmacion = false; // Para controlar la espera después de verificar la clave
+    unsigned long tiempoReferencia = 0;
+    bool enEspera = false;
 
-  public:
-    Cerradura() : teclado(), pantalla(), chapa(), conexion() {}
-
-    void iniciar() {
-      pantalla.iniciarLCD();
-      tiempoAnterior = millis(); // Inicializar el tiempo
-      mostrarMensajeInicial(); // Mostrar el mensaje inicial al iniciar
-    }
-
-    void mostrarMensajeInicial() {
-      pantalla.limpiar();
-      pantalla.mostrarMensaje("Presione # para", 0, 0);
-      pantalla.mostrarMensaje("ingresar clave", 0, 1);
-    }
-
-    char leerTecla() {
-      return teclado.leerTecla();
-    }
-
-    void ingresarClave() {
-      pantalla.limpiar();
-      pantalla.mostrarMensaje("Ingrese clave:", 0, 0);
-      clave = "";
-      char key;
-      while (true) {
-        key = teclado.leerTecla();
-        if (key) {
-          if (key == '#') {
-            break; // Salir del bucle al presionar #
-          } else if (key == '*') {
-            if (!clave.isEmpty()) {
-              clave.remove(clave.length() - 1, 1);
-              pantalla.mostrarMensaje("                ", 0, 1); // Limpia la línea
-              pantalla.mostrarMensaje(clave, 0, 1);
-            }
-          } else {
-            clave += key;
-            pantalla.mostrarMensaje(clave, 0, 1);
-          }
+    // Métodos privados
+    void manejarEntradaTeclado(char tecla) {
+        if (tecla == '*' && !claveIngresada.isEmpty()) {
+            claveIngresada.remove(claveIngresada.length() - 1);
+            pantalla.mostrarMensaje("                ", 0, 1);
+        } else if (tecla != '*') {
+            claveIngresada += tecla;
         }
-      }
-      verificarClave();
+        pantalla.mostrarMensaje(claveIngresada, 0, 1);
     }
 
-    void verificarClave() {
-      if (clave == claveCorrecta) {
+    void reiniciarIntentos() {
+        intentosRestantes = 3;
+    }
+
+    void actualizarPantallaBloqueo() {
+        pantalla.limpiar();
+        pantalla.mostrarMensaje("Cerradura", 0, 0);
+        pantalla.mostrarMensaje("bloqueada", 0, 1);
+    }
+
+    void publicarEstado(const String& estado) {
+        conexion.publicar("sentinel/estadoPuerta", estado.c_str());
+    }
+
+    void concederAcceso() {
         pantalla.limpiar();
         pantalla.mostrarMensaje("Acceso concedido", 0, 0);
         desbloqueado = true;
         chapa.abrirPuerta();
-        conexion.obtenerEstadoPuerta("abierta"); 
-        esperandoConfirmacion = true; // Activar la espera
-        tiempoAnterior = millis(); // Reiniciar el tiempo
-      } else {
-        intentos--;
+        publicarEstado("DESBLOQUEADO");
+        reiniciarIntentos();
+    }
+
+    void denegarAcceso() {
+        intentosRestantes--;
         pantalla.limpiar();
         pantalla.mostrarMensaje("Clave incorrecta", 0, 0);
-        pantalla.mostrarMensaje("Intentos: " + String(intentos), 0, 1);
-        esperandoConfirmacion = true; // Activar la espera
-        tiempoAnterior = millis(); // Reiniciar el tiempo
+        pantalla.mostrarMensaje("Intentos: " + String(intentosRestantes), 0, 1);
 
-        if (intentos == 0) {
-          pantalla.limpiar();
-          pantalla.mostrarMensaje("Cerradura bloqueada", 0, 0);
-          esperandoConfirmacion = true; // Activar la espera
-          tiempoAnterior = millis(); // Reiniciar el tiempo
+        if (intentosRestantes > 0) {
+            buzzer.sonarAlarma(600);
+        } else {
+            buzzer.sonarAlarma(1500);
         }
-      }
+    }
+
+    void manejarComandosRemotos() {
+        String mensaje = conexion.mensajeTopic();
+        
+        if (mensaje == "DESBLOQUEADO" && !desbloqueado) {
+            pantalla.limpiar();
+            pantalla.mostrarMensaje("Remoto:", 0, 0);
+            pantalla.mostrarMensaje("Acceso concedido", 0, 1);
+            desbloqueado = true;
+            chapa.abrirPuerta();
+            tiempoReferencia = millis();
+            enEspera = true;
+        } 
+        else if (mensaje == "BLOQUEADO" && desbloqueado) {
+            pantalla.limpiar();
+            pantalla.mostrarMensaje("Remoto:", 0, 0);
+            pantalla.mostrarMensaje("Puerta bloqueada", 0, 1);
+            desbloqueado = false;
+            chapa.cerrarPuerta();
+            tiempoReferencia = millis();
+            enEspera = true;
+        }
+    }
+
+public:
+    Cerradura() = default;
+
+    void iniciar() {
+        pantalla.iniciarLCD();
+        conexion.conectarWiFi();
+        mostrarMensajeInicial();
+    }
+
+    void mostrarMensajeInicial() {
+        pantalla.limpiar();
+        pantalla.mostrarMensaje("Presione # para", 0, 0);
+        pantalla.mostrarMensaje("ingresar clave", 0, 1);
+    }
+
+    char leerTecla() {
+        return teclado.leerTecla();
+    }
+
+    void ingresarClave() {
+        pantalla.limpiar();
+        pantalla.mostrarMensaje("Ingrese clave:", 0, 0);
+        claveIngresada = "";
+        
+        char tecla;
+        while ((tecla = leerTecla()) != '#') {
+            if (tecla) {
+                manejarEntradaTeclado(tecla);
+            }
+        }
+        verificarClave();
+    }
+
+    void verificarClave() {
+        if (claveIngresada == CLAVE_CORRECTA) {
+            concederAcceso();
+        } else {
+            denegarAcceso();
+        }
+        enEspera = true;
+        tiempoReferencia = millis();
     }
 
     void actualizar() {
-      if (esperandoConfirmacion) {
-        // Verificar si han pasado 3 segundos
-        if (millis() - tiempoAnterior >= 3000) {
-          esperandoConfirmacion = false; // Desactivar la espera
-          chapa.cerrarPuerta();
-          conexion.obtenerEstadoPuerta("cerrada");
-          if (intentos == 0 || desbloqueado) {
-            iniciar(); // Reiniciar si se agotaron los intentos
-          } else {
-            ingresarClave(); // Volver al mensaje inicial
-          }
+        if (enEspera && (millis() - tiempoReferencia >= TIEMPO_ESPERA)) {
+            enEspera = false;
+            if (!desbloqueado) {
+                chapa.cerrarPuerta();
+                publicarEstado("BLOQUEADO");
+                intentosRestantes > 0 ? mostrarMensajeInicial() : actualizarPantallaBloqueo();
+            }
         }
-      }
-      String estadoAPI = conexion.recibirEstadoChapa();
-      if (estadoAPI == "abierta" && !desbloqueado) {
-        pantalla.limpiar();
-        pantalla.mostrarMensaje("Abierto por API", 0, 0);
-        chapa.abrirPuerta();
-        desbloqueado = true;
-        esperandoConfirmacion = true;
-        tiempoAnterior = millis();
-      }
+        
+        manejarComandosRemotos();
+        conexion.loop();
     }
+
+    // Getters
+    bool isPuertaDesbloqueada() const { return desbloqueado; }
+    Buzzer& getBuzzer() { return buzzer; }
 };
 
 #endif

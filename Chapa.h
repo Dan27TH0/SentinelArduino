@@ -18,7 +18,7 @@ class Chapa{
       estadoChapa = false;
     }
 
-    void activarPeurta(){
+    void activarPuerta(){
       estadoChapa = !estadoChapa;
       digitalWrite(pinChapa, estadoChapa ? HIGH : LOW);
     }
