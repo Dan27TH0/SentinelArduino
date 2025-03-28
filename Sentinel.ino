@@ -2,22 +2,29 @@
 #include "Iman.h"
 
 Cerradura cerradura;
-Iman iman(cerradura.getBuzzer());
+Iman iman(34, cerradura.getBuzzer());
+
 void setup() {
-  Serial.begin(115200);
-  cerradura.iniciar(); // Inicializar la cerradura
-  Serial.println("Sistema de cerradura iniciado.");
+    Serial.begin(115200);
+    cerradura.iniciar();
+    Serial.println("Sistema iniciado");
 }
 
 void loop() {
-  // Esperar activamente a que se presione #
-  char key = cerradura.leerTecla();
-  if(!cerradura.isPuertaDesbloqueada())
-    iman.detectar();
+    char tecla = cerradura.leerTecla();
+    
+    if (!cerradura.isPuertaDesbloqueada()) {
+        iman.actualizar();
+    }
 
-  if (key == '#') {
-    cerradura.ingresarClave(); // Ingresar la clave
-  }
+    if (tecla == '#') {
+        cerradura.ingresarClave();
+    }
 
-  cerradura.actualizar();
+    cerradura.actualizar();
+    
+    // Procesar tecla para desactivar alarma
+    if (cerradura.getBuzzer().alarmaActivada() && tecla) {
+        cerradura.getBuzzer().procesarTecla(tecla);
+    }
 }

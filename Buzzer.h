@@ -1,65 +1,60 @@
 #ifndef BUZZER_H
 #define BUZZER_H
 
+#include <Arduino.h>
+
 class Buzzer {
-  private:
-    int pinBuzzer = 15;
-    bool estadoBuzzer;
-    unsigned long tiempoAnterior = 0;
-  public:
-    // Constructor
-    Buzzer(){
-      estadoBuzzer = false;
-      pinMode(pinBuzzer, OUTPUT);
+private:
+    const int pinBuzzer;
+    bool estadoAlarma; // Cambiado de alarmaActiva a estadoAlarma
+    unsigned long tiempoAlarmaInicio;
+    const unsigned long intervaloPitido = 500;
+    const String codigoDesactivacion = "9999";
+    String codigoIngresado;
+
+public:
+    Buzzer(int pin = 15) : pinBuzzer(pin), estadoAlarma(false) {
+        pinMode(pinBuzzer, OUTPUT);
     }
 
-    // Método para activar el buzzer
-    void activar() {
-      digitalWrite(pinBuzzer, HIGH);
-      estadoBuzzer = true;
+    void activar() { digitalWrite(pinBuzzer, HIGH); }
+    void desactivar() { digitalWrite(pinBuzzer, LOW); }
+
+    void sonarAlarma(unsigned long duracion = 2000) {
+        if (!estadoAlarma) {
+            estadoAlarma = true;
+            tiempoAlarmaInicio = millis();
+        }
     }
 
-    // Método para desactivar el buzzer
-    void desactivar() {
-      digitalWrite(pinBuzzer, LOW);
-      estadoBuzzer = false;
+    void detenerAlarma() {
+        estadoAlarma = false;
+        desactivar();
     }
 
-    // Método para alternar el estado del buzzer
-    void alternar() {
-      estadoBuzzer = !estadoBuzzer;
-      digitalWrite(pinBuzzer, estadoBuzzer ? HIGH : LOW);
+    void actualizar() {
+        if (estadoAlarma) {
+            unsigned long tiempoActual = millis() - tiempoAlarmaInicio;
+            digitalWrite(pinBuzzer, (tiempoActual % 1000) < 500 ? HIGH : LOW);
+        }
     }
 
-    // Método para hacer sonar el buzzer como una alarma (dos pitidos cortos)
-    void sonarAlarma(int tiempoDuracion) {
-      unsigned long inicioPitido = millis(); // Tiempo de inicio del pitido
-
-      activar(); 
-      Serial.println("A");
-      while (millis() - inicioPitido < tiempoDuracion) {}
-      desactivar(); 
-      Serial.println("O");
-
-      inicioPitido = millis(); 
-      while (millis() - inicioPitido < 200) {}
-      
-      activar(); 
-      Serial.println("A");
-      while (millis() - inicioPitido < tiempoDuracion) {}
-      desactivar(); 
-      Serial.println("O");
-      
-      inicioPitido = millis(); 
-      while (millis() - inicioPitido < 200) {}
-
-      activar(); 
-      Serial.println("A");
-      while (millis() - inicioPitido < tiempoDuracion) {}
-      desactivar(); 
-      Serial.println("O");
+    bool procesarTecla(char tecla) {
+        if (!estadoAlarma) return false;
+        
+        codigoIngresado += tecla;
+        if (codigoIngresado.length() >= codigoDesactivacion.length()) {
+            if (codigoIngresado == codigoDesactivacion) {
+                detenerAlarma();
+                codigoIngresado = "";
+                return true;
+            }
+            codigoIngresado = "";
+        }
+        return false;
     }
-    
+
+    bool alarmaActivada() const { return estadoAlarma; } // Cambiado el nombre del getter
 };
 
 #endif

@@ -1,25 +1,32 @@
-class Chapa{
-  private:
-    int pinChapa = 4;
-    bool estadoChapa;
-  public:
-    Chapa(){
-      estadoChapa = false;
-      pinMode(pinChapa, OUTPUT);
+#ifndef CHAPA_H
+#define CHAPA_H
+
+class Chapa {
+private:
+    const int pinChapa;
+    bool estado;
+
+public:
+    Chapa(int pin = 4) : pinChapa(pin), estado(false) {
+        pinMode(pinChapa, OUTPUT);
     }
 
-    void abrirPuerta(){
-      digitalWrite(pinChapa, HIGH);
-      estadoChapa = true;
+    void abrirPuerta() {
+        digitalWrite(pinChapa, HIGH);
+        estado = true;
     }
 
-    void cerrarPuerta(){
-      digitalWrite(pinChapa, LOW);
-      estadoChapa = false;
+    void cerrarPuerta() {
+        digitalWrite(pinChapa, LOW);
+        estado = false;
     }
 
-    void activarPuerta(){
-      estadoChapa = !estadoChapa;
-      digitalWrite(pinChapa, estadoChapa ? HIGH : LOW);
+    void alternar() {
+        estado = !estado;
+        digitalWrite(pinChapa, estado);
     }
+
+    bool estaAbierta() const { return estado; }
 };
+
+#endif

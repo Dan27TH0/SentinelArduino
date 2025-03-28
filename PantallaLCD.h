@@ -1,37 +1,31 @@
 #ifndef PANTALLA_LCD_H
 #define PANTALLA_LCD_H
 
-// Librerias
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-class PantallaLCD{
-  private:
+class PantallaLCD {
+private:
     LiquidCrystal_I2C lcd;
-  
-  public:
-    PantallaLCD() : lcd(0x27, 16, 2){}
+    const int pinSDA = 17;
+    const int pinSCL = 16;
 
-    void iniciarLCD() {
-      Serial.println("Inicializando LCD...");
-      Wire.begin(17, 16);
-      lcd.init();
-      delay(100);
-      lcd.backlight();
-      Serial.println("LCD inicializado.");
+public:
+    PantallaLCD() : lcd(0x27, 16, 2) {}
+
+    void iniciar() {  // Asegúrate que se llama iniciar() no iniciarLCD()
+        Wire.begin(pinSDA, pinSCL);
+        lcd.init();
+        lcd.backlight();
+        lcd.clear();
     }
 
-    void mostrarMensaje(const String& mensaje, int col = 0, int fila = 0) {
-      Serial.print("Mostrando mensaje: ");
-      Serial.println(mensaje);
-      lcd.setCursor(col, fila);
-      lcd.print(mensaje);
-      delay(10);
+    void mostrarMensaje(const String &mensaje, int col = 0, int fila = 0) {
+        lcd.setCursor(col, fila);
+        lcd.print(mensaje);
     }
 
-    void limpiar() {
-      lcd.clear();
-    }
+    void limpiar() { lcd.clear(); }
 };
 
 #endif

@@ -18,7 +18,7 @@ private:
     
     // Configuración
     const String CLAVE_CORRECTA = "1587";
-    const unsigned long TIEMPO_ESPERA = 3000; // 3 segundos
+    const unsigned long TIEMPO_ESPERA = 3000;
     
     // Estado
     String claveIngresada;
@@ -27,26 +27,17 @@ private:
     unsigned long tiempoReferencia = 0;
     bool enEspera = false;
 
-    // Métodos privados
     void manejarEntradaTeclado(char tecla) {
         if (tecla == '*' && !claveIngresada.isEmpty()) {
             claveIngresada.remove(claveIngresada.length() - 1);
             pantalla.mostrarMensaje("                ", 0, 1);
         } else if (tecla != '*') {
             claveIngresada += tecla;
+            pantalla.mostrarMensaje(claveIngresada, 0, 1);
         }
-        pantalla.mostrarMensaje(claveIngresada, 0, 1);
     }
 
-    void reiniciarIntentos() {
-        intentosRestantes = 3;
-    }
-
-    void actualizarPantallaBloqueo() {
-        pantalla.limpiar();
-        pantalla.mostrarMensaje("Cerradura", 0, 0);
-        pantalla.mostrarMensaje("bloqueada", 0, 1);
-    }
+    void reiniciarIntentos() { intentosRestantes = 3; }
 
     void publicarEstado(const String& estado) {
         conexion.publicar("sentinel/estadoPuerta", estado.c_str());
@@ -66,12 +57,7 @@ private:
         pantalla.limpiar();
         pantalla.mostrarMensaje("Clave incorrecta", 0, 0);
         pantalla.mostrarMensaje("Intentos: " + String(intentosRestantes), 0, 1);
-
-        if (intentosRestantes > 0) {
-            buzzer.sonarAlarma(600);
-        } else {
-            buzzer.sonarAlarma(1500);
-        }
+        buzzer.sonarAlarma(intentosRestantes > 0 ? 600 : 1500);
     }
 
     void manejarComandosRemotos() {
@@ -98,10 +84,8 @@ private:
     }
 
 public:
-    Cerradura() = default;
-
     void iniciar() {
-        pantalla.iniciarLCD();
+        pantalla.iniciar();
         conexion.conectarWiFi();
         mostrarMensajeInicial();
     }
@@ -112,9 +96,7 @@ public:
         pantalla.mostrarMensaje("ingresar clave", 0, 1);
     }
 
-    char leerTecla() {
-        return teclado.leerTecla();
-    }
+    char leerTecla() { return teclado.leerTecla(); }
 
     void ingresarClave() {
         pantalla.limpiar();
@@ -123,9 +105,7 @@ public:
         
         char tecla;
         while ((tecla = leerTecla()) != '#') {
-            if (tecla) {
-                manejarEntradaTeclado(tecla);
-            }
+            if (tecla) manejarEntradaTeclado(tecla);
         }
         verificarClave();
     }
@@ -146,15 +126,20 @@ public:
             if (!desbloqueado) {
                 chapa.cerrarPuerta();
                 publicarEstado("BLOQUEADO");
-                intentosRestantes > 0 ? mostrarMensajeInicial() : actualizarPantallaBloqueo();
+                intentosRestantes > 0 ? mostrarMensajeInicial() : mostrarBloqueo();
             }
         }
-        
         manejarComandosRemotos();
         conexion.loop();
+        buzzer.actualizar();
     }
 
-    // Getters
+    void mostrarBloqueo() {
+        pantalla.limpiar();
+        pantalla.mostrarMensaje("Cerradura", 0, 0);
+        pantalla.mostrarMensaje("bloqueada", 0, 1);
+    }
+
     bool isPuertaDesbloqueada() const { return desbloqueado; }
     Buzzer& getBuzzer() { return buzzer; }
 };
